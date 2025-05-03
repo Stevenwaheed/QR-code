@@ -1,0 +1,51 @@
+name: Pylint
+on: [push]
+jobs:
+  build:
+    runs-on: po
+    strategy:
+      matrix:
+        python-version: ["3.12"]
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v3
+        with:
+          python-version: ${{ matrix.python-version }}
+          
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip3 install -r requirements.txt
+          
+      - name: Create .Env File
+        run: |
+          touch .env
+          echo SQLALCHEMY_DATABASE_URI=${{ secrets.SQLALCHEMY_DATABASE_URI }} >> .env
+          echo SECRET=${{ secrets.SECRET }} >> .env
+          echo POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }} >> .env
+          echo POSTGRES_DB=${{ secrets.POSTGRES_DB }} >> .env
+          echo POSTGRES_PORT=${{ secrets.POSTGRES_PORT }} >> .env
+          echo POSTGRES_USER=${{ secrets.POSTGRES_USER }} >> .env
+          echo POSTGRES_HOST=${{ secrets.POSTGRES_HOST }} >> .env 
+          echo JWT_SECRET_KEY=${{ secrets.JWT_SECRET_KEY }} >> .env
+          echo IMAGE_ICONS_GLOBAL_URL=${{ secrets.IMAGE_ICONS_GLOBAL_URL }} >> .env
+          echo IMAGE_ICONS_URL=${{ secrets.IMAGE_ICONS_URL }} >> .env
+
+          cat .env
+          
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+        
+      - name: Deploy Using Docker Compose
+        run: |
+          docker compose build
+          docker compose up -d
+          
+          
+          
+          
+      - name: Clean Up
+        run: |
+          docker system prune -f

@@ -1,0 +1,63 @@
+version: "3.0"
+
+services:
+  qr_code_db:
+    image: postgres
+    container_name: qr_code_db
+    restart: always
+    networks:
+      - qr_code_network
+
+    ports:
+      - 5432:5432
+
+    env_file:
+      - .env
+
+    volumes:
+      - pData:/var/lib/postgresql/data
+      - ./migrations:/app/migrations
+      
+    healthcheck:
+      test:
+        ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB} -t 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 10s
+
+  qr_code_app:
+    user: "0:0" 
+    container_name: qr_code_app
+    build:
+      context: .
+      dockerfile: Dockerfile
+
+    env_file:
+      - .env
+
+    ports:
+      - 8008:5000
+
+    volumes:
+      - /var/www/html/uploads:/var/www/html/uploads 
+
+    networks:
+      - qr_code_network
+
+    depends_on:
+      db:
+        condition: service_healthy
+
+    links:
+      - db
+
+networks:
+  qr_code_network:
+    name: qr_code_network
+
+volumes:
+  pData:
+    driver: local
+  uploads_data:  # Added named volume for uploads
+    driver: local

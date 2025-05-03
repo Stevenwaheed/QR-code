@@ -1,0 +1,13 @@
+qrcode==8.0
+Flask==3.0.3
+Flask-RESTful==0.3.10
+Flask-SQLAlchemy==3.1.1
+Flask-Migrate==4.0.7
+alembic==1.13.3
+numpy==1.26.4
+pandas==2.2.2
+python-dotenv==1.0.1
+flask-jwt-extended==4.6.0
+flasgger==0.9.7.1
+psycopg2-binary==2.9.10
+Flask-Cors==5.0.0
