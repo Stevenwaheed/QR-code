@@ -6,37 +6,12 @@ import string
 from app.blueprints.agency.models import Agency
 from app.blueprints.profile.models import Profile
 from db.database import db
-from app.blueprints.auth.models import Permission, Role, RolePermission, User
+from app.blueprints.auth.models import Permission, Role, RolePermission, RoleType, User
 from flask_jwt_extended import (
     get_jwt_identity,
 )
 from flask import jsonify
 
-def sync_permissions():
-    permissions_json = []
-    agencies = Agency.query.all()
-    permission_list = []
-    for agency in agencies:
-        for permission_json in permissions_json:
-            permission = Permission.query.filter_by(name=permission_json['name'], type=permission_json['type'], agency_id=agency.id).first()
-            if permission is None:
-                new_permission = Permission(
-                    name=permission_json['name'],
-                    type=permission_json['type'],
-                )
-                db.session.add(new_permission)
-                db.session.commit()
-                permission_list.append(
-                    {
-                        "name":new_permission.name,
-                        "type":new_permission.type,
-                        "agency_id": agency.id,
-                    }
-                )
-    return permission_list
-    
-    
-    
 def permission_required(*permission_names):
     def decorator(f):
         @wraps(f)
@@ -91,20 +66,33 @@ def generate_password(length=12, use_uppercase=True, use_numbers=True, use_speci
 
 
 
-
-def seed_roles(agency_id):
-    agency = Agency.query.filter_by(id=agency_id).first()
-    if agency is None:
-        return None
+def seed_permissions():
+    permissions = ["read", 'write', 'delete', 'update']
+    scopes = ["qr", 'user']
     
-    roles = []
-    for role in roles:
+    # Create permissions
+    for permission in permissions:
+        for scope in scopes:
+            new_permission = Permission(
+                type=permission,
+                name=scope
+            )
+            db.session.add(new_permission)
+            db.session.commit()
+    
+
+def seed_roles():
+    # Create roles using RoleType enum
+    for role_type in RoleType:
         new_role = Role(
-            name=role,
-            agency_id=agency.id
+            name=role_type.value,
+            role_enum=list(RoleType).index(role_type)
         )
         db.session.add(new_role)
         db.session.commit()
+    
+    
+
         
         
 def get_user_details(user):

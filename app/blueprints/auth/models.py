@@ -13,9 +13,8 @@ class UserType(Enum):
 
 class RoleType(Enum):
     MANAGER='MANAGER'
-    AGENT='AGENT'
+    ADMIN='ADMIN'
     EMPLOYEE='EMPLOYEE'
-
 
 
 class User(db.Model):
@@ -49,7 +48,8 @@ class Role(db.Model):
     
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String)
-    agency_id = db.Column(db.Integer, db.ForeignKey('agencies.id'))
+    role_enum = db.Column(db.Integer)
+    # agency_id = db.Column(db.Integer, db.ForeignKey('agencies.id'))
     created_at = db.Column(db.DateTime, default=func.now())
     updated_at = db.Column(db.DateTime, default=func.now(), onupdate=func.now())
     

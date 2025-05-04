@@ -5,7 +5,6 @@ from .models import QRCode
 from sqlalchemy import desc
 from app.blueprints.address.models import Address, City, Country, State
 from app.blueprints.agency.methods import get_agency_details
-from app.blueprints.auth.methods import seed_roles
 from app.blueprints.auth.models import User, UserType
 from app.blueprints.product.methods import generate_random_filename
 from app.blueprints.product.models import Product
@@ -223,6 +222,9 @@ def create_agency():
     if user is None:
       return {"message": "user not found"}, 200
 
+    if user.agency_id is not None:
+      return {"message": "user already have an agency"}, 200
+    
     data = request.json
     required_fields = [
         "name",
@@ -365,17 +367,17 @@ def get_companies():
                     type: string
                     format: date-time
     """
-    companies = Agency.query.all()
+    agencies = Agency.query.filter_by(is_visible=True).all()
 
-    companies_list = []
-    for agency in companies:
+    agency_list = []
+    for agency in agencies:
       agency_details = get_agency_details(agency)
         
-      companies_list.append(
+      agency_list.append(
         agency_details
       )
     return (
-        jsonify(companies_list), 200
+        jsonify(agency_list), 200
     )
 
 

@@ -2,7 +2,7 @@ from datetime import datetime, timedelta
 import json
 from app.blueprints.address.methods import get_address_details
 from app.blueprints.agency.methods import get_agency_details
-from app.blueprints.auth.methods import generate_password, get_user_details, sync_permissions
+from app.blueprints.auth.methods import generate_password, get_user_details, seed_permissions, seed_roles
 from app.blueprints.profile.models import Profile
 from flask_cors import cross_origin
 from flask import Blueprint, request, jsonify
@@ -18,6 +18,7 @@ from app.utils.validators import (
 )
 from .models import (
     OTPResetToken,
+    RoleType,
     User,
     UserType,
     db,
@@ -244,78 +245,74 @@ def sign_up():
 
     if not is_valid_phone_number(str(data["phone_number"])):
         return {"message": "invalid phone number"}, 400
-
     
-    # role = Role.query.filter_by(id=4).first()
+    # try:
+    user = User.query.filter_by(email=data["email"], is_active=True).first()
+    if user is not None:
+        return {"message": "email is already exist"}, 400
+
+    role = Role.query.filter_by(role_enum=list(RoleType).index(RoleType.ADMIN)).first()
+    
+    new_user = User(
+        email=data["email"],
+        first_name=data["first_name"],
+        last_name=data["last_name"],
+        phone_number=str(data["phone_number"]),
+        user_type=UserType.ADMIN.value,
+        role_id=role.id,
+        password_hash=set_password(data["password"]),
+    )
+    db.session.add(new_user)
+    db.session.commit()
+
+    new_profile = Profile(
+        phone_number=data["phone_number"], user_id=new_user.id
+    )
+    db.session.add(new_profile)
+    db.session.commit()
+    
+    # role = Role.query.filter_by(id=user.role_id).first()
     # if role is None:
-    #   return {"message": "role not found"}, 404
+    #       return {"message": "user does not have role"}, 400
+
+    role_permissions = RolePermission.query.filter_by(role_id=role.id).all()
+    permission_ids = [
+          role_permission.permission_id for role_permission in role_permissions
+      ]
+
+    permissions_list = []
+    for permission_id in permission_ids:
+      permission = Permission.query.filter_by(id=permission_id).first()
+
+      permissions_list.append(
+          {"id": permission.id, "type": permission.type, "name": permission.name}
+      )
+
+    access_token = create_access_token(
+          identity=json.dumps({"user_id": str(new_user.id)
+                                , "permissions": permissions_list
+                                }
+                              ),
+          # additional_claims=additional_claims,
+      )
+
+    refresh_token = create_refresh_token(
+          identity=json.dumps({"user_id": str(new_user.id)
+                                , "permissions": permissions_list
+                                }
+                              ),
+          # additional_claims=additional_claims,
+      )
     
-    try:
-      user = User.query.filter_by(email=data["email"], is_active=True).first()
-      if user is not None:
-          return {"message": "email is already exist"}, 400
-
-      
-      new_user = User(
-          email=data["email"],
-          first_name=data["first_name"],
-          last_name=data["last_name"],
-          phone_number=str(data["phone_number"]),
-          user_type=UserType.ADMIN.value,
-          # role_id=role.id,
-          password_hash=set_password(data["password"]),
-      )
-      db.session.add(new_user)
-      db.session.commit()
-
-      new_profile = Profile(
-          phone_number=data["phone_number"], user_id=new_user.id
-      )
-      db.session.add(new_profile)
-      db.session.commit()
-      
-      # role = Role.query.filter_by(id=user.role_id).first()
-      # if role is None:
-      #       return {"message": "user does not have role"}, 400
-
-      # role_permissions = RolePermission.query.filter_by(role_id=role.id).all()
-      # permission_ids = [
-      #       role_permission.permission_id for role_permission in role_permissions
-      #   ]
-
-      # permissions_list = []
-      # for permission_id in permission_ids:
-      #   permission = Permission.query.filter_by(id=permission_id).first()
-
-      #   permissions_list.append(
-      #       {"id": permission.id, "type": permission.type, "name": permission.name}
-      #   )
-
-      access_token = create_access_token(
-            identity=json.dumps({"user_id": str(new_user.id)
-                                #  , "permissions": permissions_list
-                                  }
-                                ),
-            # additional_claims=additional_claims,
-        )
-
-      refresh_token = create_refresh_token(
-            identity=json.dumps({"user_id": str(new_user.id)
-                                #  , "permissions": permissions_list
-                                  }
-                                ),
-            # additional_claims=additional_claims,
-        )
-      
-      user_details = get_user_details(new_user)
-      # user_details['permissions'] = permissions_list
-      user_details['access_token'] = access_token
-      user_details['refresh_token'] = refresh_token
-      
-      return user_details, 200
-    except:
-        db.session.rollback()
-        return {"error": "couldn't add user"}, 400
+    user_details = get_user_details(new_user)
+    user_details['permissions'] = permissions_list
+    user_details['access_token'] = access_token
+    user_details['refresh_token'] = refresh_token
+    
+    return user_details, 200
+    # except:
+    #     db.session.rollback()
+    #     return {"error": "couldn't add user"}, 400
 
 
 
@@ -524,7 +521,10 @@ def add_user():
     payload = json.loads(payload)
     
     user = User.query.filter_by(id=payload['user_id'], is_active=True).first()
+    
     agency = Agency.query.filter_by(id=user.agency_id).first()
+    if agency is None and user.user_type != UserType.SUPERADMIN:
+      return {"message": "user does not have agency"}, 404
     
     required_fields = [
         # "state_id",
@@ -549,6 +549,9 @@ def add_user():
     if not is_valid_phone_number(str(data["phone_number"])):
         return {"message": "invalid phone number"}, 400
 
+    role = Role.query.filter_by(id=data['role_id']).first()
+    if role is None:
+      return {"message": "role not found"}, 404
     
     # try:
     stored_user = User.query.filter_by(email=data["email"], is_active=True).first()
@@ -563,9 +566,8 @@ def add_user():
         last_name=data["last_name"],
         phone_number=data["phone_number"],
         agency_id=agency.id,
-        # category_id=data['category_id'],
         user_type=UserType.USER.value,
-        # role_id=role.id if role is not None else None,
+        role_id=role.id if role is not None else None,
         password_hash=set_password(user_password),
     )
     db.session.add(new_user)
@@ -631,9 +633,15 @@ def get_user_by_id(user_id):
   payload = get_jwt_identity()
   payload = json.loads(payload)
 
-  # owner = User.query.filter_by(id=payload['user_id'], is_active=True).first()
-  
+  owner = User.query.filter_by(id=payload['user_id'], is_active=True).first()
   user = User.query.filter_by(id=user_id, is_active=True).first()
+  if owner and owner.user_type != UserType.SUPERADMIN:
+    if user is None:
+      return {"message":"user not found"}, 404
+    
+    if owner.agency_id != user.agency_id:
+      return {"message":"this user is not part of your agency"}, 400
+
   agency = Agency.query.filter_by(id=user.agency_id).first()
   
   user_details = get_user_details(user)
@@ -646,6 +654,105 @@ def get_user_by_id(user_id):
   return user_details, 200
 
 
+
+
+
+
+@auth_pg.route('/v1/roles/<int:role_id>/permissions', methods=['POST'])
+def assign_permissions_to_role(role_id):
+    """
+    Assigns permissions to a specific role
+    
+    Expected JSON body:
+    {
+        "permission_ids": [1, 2, 3, ...]
+    }
+    """
+    try:
+        # Get the role
+        role = Role.query.get(role_id)
+        if not role:
+            return jsonify({"error": "Role not found"}), 404
+            
+        # Get the permission IDs from the request
+        data = request.get_json()
+        if not data or 'permission_ids' not in data:
+            return jsonify({"error": "Permission IDs are required"}), 400
+            
+        permission_ids = data['permission_ids']
+        if not isinstance(permission_ids, list):
+            return jsonify({"error": "Permission IDs must be a list"}), 400
+            
+        # Verify all permissions exist
+        existing_permissions = Permission.query.filter(Permission.id.in_(permission_ids)).all()
+        existing_ids = [p.id for p in existing_permissions]
+        
+        missing_ids = [pid for pid in permission_ids if pid not in existing_ids]
+        if missing_ids:
+            return jsonify({
+                "error": "Some permission IDs do not exist", 
+                "missing_ids": missing_ids
+            }), 404
+        
+        # Delete existing role permissions to avoid duplicates
+        RolePermission.query.filter_by(role_id=role_id).delete()
+        
+        # Create new role permissions
+        new_role_permissions = []
+        for permission_id in permission_ids:
+            role_permission = RolePermission(
+                role_id=role_id,
+                permission_id=permission_id
+            )
+            new_role_permissions.append(role_permission)
+            
+        db.session.add_all(new_role_permissions)
+        db.session.commit()
+        
+        return jsonify({
+            "message": f"Successfully assigned {len(permission_ids)} permissions to role {role.name}",
+            "role_id": role_id,
+            "permission_ids": permission_ids
+        }), 200
+        
+    except SQLAlchemyError as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
+
+@auth_pg.route('/v1/roles/<int:role_id>/permissions', methods=['GET'])
+def get_role_permissions(role_id):
+    """
+    Get all permissions assigned to a specific role
+    """
+    try:
+        # Check if role exists
+        role = Role.query.get(role_id)
+        if not role:
+            return jsonify({"error": "Role not found"}), 404
+            
+        # Get all role permissions
+        role_permissions = RolePermission.query.filter_by(role_id=role_id).all()
+        permission_ids = [rp.permission_id for rp in role_permissions]
+        
+        # Get permission details
+        permissions = Permission.query.filter(Permission.id.in_(permission_ids)).all()
+        permission_data = [{
+            "id": p.id,
+            "type": p.type,
+            "name": p.name
+        } for p in permissions]
+        
+        return jsonify({
+            "role": {
+                "id": role.id,
+                "name": role.name,
+                "role_enum": role.role_enum
+            },
+            "permissions": permission_data
+        }), 200
+        
+    except SQLAlchemyError as e:
+        return jsonify({"error": str(e)}), 500
 
 
 
@@ -753,33 +860,33 @@ def log_in():
 
     # additional_claims = {"user_type": user.user_type.value, "email": user.email}
 
-    # role = Role.query.filter_by(id=user.role_id).first()
-    # if role is None:
-    #     return {"message": "user does not have role"}, 400
+    role = Role.query.filter_by(id=user.role_id).first()
+    if role is None:
+        return {"message": "user does not have role"}, 400
 
-    # role_permissions = RolePermission.query.filter_by(role_id=role.id).all()
-    # permission_ids = [
-    #     role_permission.permission_id for role_permission in role_permissions
-    # ]
+    role_permissions = RolePermission.query.filter_by(role_id=role.id).all()
+    permission_ids = [
+        role_permission.permission_id for role_permission in role_permissions
+    ]
 
-    # permissions_list = []
-    # for permission_id in permission_ids:
-    #     permission = Permission.query.filter_by(id=permission_id).first()
+    permissions_list = []
+    for permission_id in permission_ids:
+        permission = Permission.query.filter_by(id=permission_id).first()
 
-    #     permissions_list.append(
-    #         {"id": permission.id, "type": permission.type, "name": permission.name}
-    #     )
+        permissions_list.append(
+            {"id": permission.id, "type": permission.type, "name": permission.name}
+        )
 
     access_token = create_access_token(
         identity=json.dumps({"user_id": str(user.id)
-                            #  , "permissions": permissions_list
+                             , "permissions": permissions_list
                              }),
         # additional_claims=additional_claims,
     )
 
     refresh_token = create_refresh_token(
         identity=json.dumps({"user_id": str(user.id)
-                            #  , "permissions": permissions_list
+                             , "permissions": permissions_list
                              }),
         # additional_claims=additional_claims,
     )
@@ -1103,167 +1210,6 @@ def handle_error(error, message="An error occurred"):
     return jsonify({"status": "error", "message": message, "details": str(error)}), 400
 
 
-@role_bp.route("/v1/role", methods=["POST"])
-@jwt_required()
-def create_role():
-    """
-        Create a new role for the authenticated user
-        ---
-        tags:
-          - Roles
-        description: |
-          This endpoint creates a new role for the authenticated user's agency. 
-          It requires a name for the role and a list of permission IDs associated with it.
-        parameters:
-          - in: body
-            name: body
-            required: true
-            schema:
-              type: object
-              properties:
-                name:
-                  type: string
-                  description: The name of the role.
-                  example: "Admin"
-                permission_ids:
-                  type: array
-                  items:
-                    type: integer
-                  description: List of permission IDs associated with the role.
-                  example: [1, 2, 3]
-        responses:
-          201:
-            description: Role created successfully.
-            schema:
-              type: object
-              properties:
-                id:
-                  type: integer
-                  description: The ID of the newly created role.
-                name:
-                  type: string
-                  description: The name of the role.
-                permission:
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      id:
-                        type: integer
-                        description: The ID of the permission.
-                      name:
-                        type: string
-                        description: The name of the permission.
-                      type:
-                        type: string
-                        description: The type of the permission.
-                created_at:
-                  type: string
-                  format: date-time
-                  description: Creation timestamp of the role.
-          400:
-            description: Bad Request. Missing required fields or role already exists.
-            schema:
-              type: object
-              properties:
-                status:
-                  type: string
-                  example: "error"
-                message:
-                  type: string
-          404:
-            description: Permission not found.
-            schema:
-              type: object
-              properties:
-                message:
-                  type: string
-          500:
-            description: Internal server error.
-            schema:
-              type: object
-              properties:
-                status:
-                  type: string
-                  example: "error"
-                message:
-                  type: string
-        security:
-          - bearerAuth: []
-    """
-    try:
-        data = request.json
-
-        # Validate required fields
-        if not data or "name" not in data or data["name"] == "":
-            return jsonify({"status": "error", "message": "Name is required"}), 400
-          
-        if 'permission_ids' not in data or data["permission_ids"] == []:
-          return jsonify({"status": "error", "message": "permission ids is required"}), 400
-
-        payload = get_jwt_identity()
-        payload = json.loads(payload)
-        user = User.query.filter_by(id=payload["user_id"]).first()
-
-        existing_role = Role.query.filter_by(
-            name=data["name"], agency_id=user.agency_id
-        ).first()
-        if existing_role:
-            return (
-                jsonify(
-                    {"status": "error", "message": "Role with this name already exists"}
-                ),
-                400,
-            )
-
-        # Create new role
-        new_role = Role(name=data["name"], agency_id=user.agency_id)
-        db.session.add(new_role)
-        db.session.commit()
-
-        
-        permissions = []
-        for permission_id in data["permission_ids"]:
-            permission = Permission.query.filter_by(id=permission_id).first()
-            if permission is None:
-                return {"message": "permission not found"}, 404
-
-            permissions.append(
-                {
-                    "id": permission.id,
-                    "name": permission.name,
-                    "type": permission.type,
-                }
-            )
-            existing_user_permission = RolePermission.query.filter_by(
-                role_id=new_role.id, permission_id=permission_id
-            ).first()
-            if existing_user_permission:
-                continue
-
-            # Create new user permission
-            new_user_permission = RolePermission(
-                role_id=new_role.id, permission_id=permission_id
-            )
-            db.session.add(new_user_permission)
-            db.session.commit()
-
-        return (
-            jsonify(
-                {
-                    "id": new_role.id,
-                    "name": new_role.name,
-                    "permission":permissions,
-                    "created_at": new_role.created_at.isoformat(),
-                }
-            ),
-            201,
-        )
-
-    except SQLAlchemyError as e:
-        return handle_error(e, "Failed to create role")
-
-
 @role_bp.route("/v1/role", methods=["GET"])
 @jwt_required()
 def get_roles():
@@ -1334,15 +1280,8 @@ def get_roles():
           - bearerAuth: []
     """
     try:
-        payload = get_jwt_identity()
-        payload = json.loads(payload)
-        user = User.query.filter_by(id=payload["user_id"]).first()
+        roles = Role.query.all()
         
-        if user.agency_id is None and user.user_type == UserType.SUPERADMIN:
-          roles = Role.query.all()
-        else:
-          roles = Role.query.filter_by(agency_id=user.agency_id).all()
-          
         roles_list = []
         for role in roles:
           permissions_list = []
@@ -1674,135 +1613,11 @@ def assign_user_role(role_id, user_id):
       return {"message": "can't assign the role"}, 400
 
 
-@auth_pg.route("/v1/permission", methods=["POST"])
+
+
+@auth_pg.route("/v1/user-permission", methods=["GET"])
 @jwt_required()
-def create_permission():
-    """
-    Create a new permission
-    ---
-    tags:
-      - Permissions
-    description: |
-      This endpoint allows the creation of a new permission.
-      It validates the required fields and checks for existing permissions with the same type and name.
-    parameters:
-      - name: body
-        in: body
-        required: true
-        schema:
-          type: object
-          required:
-            - type
-            - name
-          properties:
-            type:
-              type: string
-              description: The type of the permission to be created.
-            name:
-              type: string
-              description: The name of the permission to be created.
-    responses:
-      201:
-        description: Successfully created the permission
-        schema:
-          type: object
-          properties:
-            id:
-              type: integer
-              description: The ID of the newly created permission.
-            type:
-              type: string
-              description: The type of the newly created permission.
-            name:
-              type: string
-              description: The name of the newly created permission.
-            created_at:
-              type: string
-              format: date-time
-              description: Timestamp when the permission was created.
-      400:
-        description: Bad request due to missing fields or existing permission
-        schema:
-          type: object
-          properties:
-            status:
-              type: string
-              example: "error"
-            message:
-              type: string
-              description: Error message describing the issue.
-      500:
-        description: Internal server error
-        schema:
-          type: object
-          properties:
-            status:
-              type: string
-              example: "error"
-            message:
-              type: string
-              description: Error message describing the issue.
-    security:
-      - bearerAuth: []  # Assuming JWT authentication is required for this endpoint
-    """
-    try:
-        data = request.json
-        payload = get_jwt_identity()
-        payload = json.loads(payload)
-        user = User.query.filter_by(id=payload["user_id"]).first()
-        if user is None:
-            return {"message": "user not found"}, 404
-
-        # Validate required fields
-        if not data or "type" not in data or "name" not in data:
-          return (
-            jsonify({"status": "error", "message": "Type and name are required"}),
-            400,
-          )
-          
-        if data["name"] == "":
-          return {"message": "name is empty"}
-
-        if data["type"] == "":
-          return {"message": "type is empty"}
-        
-        # Check if permission with same type and name already exists
-        existing_permission = Permission.query.filter_by(
-          type=data["type"], name=data["name"], agency_id=user.agency_id
-        ).first()
-        if existing_permission:
-            return (
-                jsonify({"status": "error", "message": "Permission already exists"}),
-                400,
-            )
-
-        # Create new permission
-        new_permission = Permission(
-            type=data["type"], name=data["name"], agency_id=user.agency_id
-        )
-        db.session.add(new_permission)
-        db.session.commit()
-
-        return (
-            jsonify(
-                {
-                    "id": new_permission.id,
-                    "type": new_permission.type,
-                    "name": new_permission.name,
-                    "created_at": new_permission.created_at.isoformat(),
-                }
-            ),
-            201,
-        )
-
-    except Exception as e:
-        db.session.rollback()
-        return handle_error(e, "Failed to create permission")
-
-
-@auth_pg.route("/v1/permission", methods=["GET"])
-@jwt_required()
-def get_permissions():
+def get_user_permissions():
     """
     Retrieve all permissions
     ---
@@ -1873,6 +1688,80 @@ def get_permissions():
 
     except SQLAlchemyError as e:
         return handle_error(e, "Failed to retrieve permissions")
+
+
+
+
+
+
+@auth_pg.route("/v1/permission", methods=["GET"])
+@jwt_required()
+def get_permissions():
+    """
+    Retrieve all permissions
+    ---
+    tags:
+      - Permissions
+    description: |
+      This endpoint retrieves a list of all permissions available in the system.
+    responses:
+      200:
+        description: Successfully retrieved the list of permissions
+        schema:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: integer
+                description: The ID of the permission.
+              type:
+                type: string
+                description: The type of the permission.
+              name:
+                type: string
+                description: The name of the permission.
+              created_at:
+                type: string
+                format: date-time
+                description: Timestamp when the permission was created.
+              updated_at:
+                type: string
+                format: date-time
+                description: Timestamp when the permission was last updated.
+      500:
+        description: Internal server error
+        schema:
+          type: object
+          properties:
+            status:
+              type: string
+              example: "error"
+            message:
+              type: string
+              description: Error message describing the issue.
+    security:
+      - bearerAuth: []  # Assuming JWT authentication is required for this endpoint
+    """
+    try:
+        permissions = Permission.query.all()
+
+        return jsonify(
+            [
+                {
+                    "id": permission.id,
+                    "type": permission.type,
+                    "name": permission.name,
+                    "created_at": permission.created_at.isoformat(),
+                    "updated_at": permission.updated_at.isoformat(),
+                }
+                for permission in permissions
+            ]
+        )
+
+    except SQLAlchemyError as e:
+        return handle_error(e, "Failed to retrieve permissions")
+
 
 
 @auth_pg.route("/v1/permission/<int:permission_id>", methods=["GET"])
@@ -1963,60 +1852,8 @@ def get_permission_by_id(permission_id):
         return handle_error(e, "Failed to retrieve permission")
 
 
-@auth_pg.route("/v1/user-type", methods=["GET"])
-def get_user_roles():
-    """
-    Retrieve user roles
-    ---
-    tags:
-      - User Roles
-    description: |
-      This endpoint retrieves a list of user roles, excluding the role named "supername".
-    responses:
-      200:
-        description: Successfully retrieved the list of user roles
-        schema:
-          type: array
-          items:
-            type: object
-            properties:
-              id:
-                type: integer
-                description: The ID of the role.
-              name:
-                type: string
-                description: The name of the role.
-              value:
-                type: string
-                description: The value associated with the role (same as name).
-      500:
-        description: Internal server error
-        schema:
-          type: object
-          properties:
-            status:
-              type: string
-              example: "error"
-            message:
-              type: string
-              description: Error message describing the issue.
-    """
-    roles = Role.query.filter(Role.id != 7).all()
-    roles_list = []
-    for role in roles:
-      roles_list.append(
-        {
-          "id":role.id,
-          "name":role.name,
-          "value":role.name,
-        }
-      )
-    return jsonify(roles_list), 200
 
-
-
-
-@auth_pg.route("/v1/sync-permission", methods=["GET"])
+@auth_pg.route("/v1/sync-roles-permission", methods=["GET"])
 def sync_permission_api():
     """
     Synchronize permissions
@@ -2046,5 +1883,6 @@ def sync_permission_api():
               type: string
               description: Error message describing the issue
     """
-    permissions = sync_permissions()
-    return permissions, 200
+    seed_permissions()
+    seed_roles()
+    return "Done", 200
