@@ -11,6 +11,7 @@ class Product(db.Model):
     price = db.Column(db.Float)
     image_url = db.Column(db.String(200))
     is_visible = db.Column(db.Boolean, default=True)
+    category_id = db.Column(db.Integer, ForeignKey('categories.id'))
     agency_id = db.Column(db.Integer, ForeignKey('agencies.id'))
     created_at = db.Column(db.DateTime, default=func.now())
     updated_at = db.Column(db.DateTime, default=func.now(), onupdate=func.now())

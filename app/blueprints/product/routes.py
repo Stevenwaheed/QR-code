@@ -1,7 +1,8 @@
 
 import json
 from app.blueprints.auth.models import User
-from flask import Blueprint, redirect, request, jsonify, url_for
+from app.blueprints.category.models import Category
+from flask import Blueprint, request, jsonify
 from flask_jwt_extended import (
     jwt_required,
     get_jwt_identity,
@@ -27,14 +28,19 @@ def manage_products():
     if request.method == 'POST':
         name = request.form.get('name')
         description = request.form.get('description')
+        category_id = request.form.get('category_id')
         price = float(request.form.get('price', 0))
         image_url = request.form.get('image_url', '')
+        category = Category.query.filter_by(id=category_id).first()
+        if category is None:
+            return {"message": "category not found"}, 404
         
         new_product = Product(
             name=name,
             created_by=user.id,
             description=description,
             price=price,
+            category_id=category_id,
             image_url=image_url,
             agency_id=user.agency_id
         )
@@ -50,7 +56,7 @@ def manage_products():
         {
             get_product_details(product)
         } for product in products
-    ]
+    ], 200
 
 
 @product_bp.route('/v1/product/<int:product_id>', methods=['GET'])
@@ -58,12 +64,12 @@ def get_product(product_id):
     try:
         product = Product.query.filter_by(id=product_id, is_visible=True).first()
         if not product:
-            return jsonify({"error": "Product not found"}), 404
+            return jsonify({"message": "Product not found"}), 404
         
         return get_product_details(product), 200
         
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"message": str(e)}), 500
     
     
     
@@ -74,7 +80,7 @@ def delete_product(product_id):
         # Get the product
         product = Product.query.get(product_id)
         if not product:
-            return jsonify({"error": "Product not found"}), 404
+            return jsonify({"message": "Product not found"}), 404
         
         product.is_visible = False
         db.session.commit()
@@ -83,7 +89,7 @@ def delete_product(product_id):
         
     except Exception as e:
         db.session.rollback()
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"message": str(e)}), 500
 
 
 
@@ -93,22 +99,29 @@ def update_product(product_id):
         # Get the product
         product = Product.query.get(product_id)
         if not product:
-            return jsonify({"error": "Product not found"}), 404
+            return jsonify({"message": "Product not found"}), 404
             
         # Get update data from request
         name = request.form.get('name')
         description = request.form.get('description')
+        category_id = request.form.get('category_id')
         price = float(request.form.get('price'))
         image_url = request.form.get('image_url')
         
-        if name is not None:
+        if name is not None and name != '':
             product.name = name
-        if description is not None:
+        if description is not None and description != '':
             product.description = description
-        if description is not None:
+        if description is not None and price > 0:
             product.price = price
         if description is not None:
             product.image_url = image_url
+        if category_id is not None:
+            category = Category.query.filter_by(id=category_id).first()
+            if category is None:
+                return {"message": "category not found"}, 404
+            
+            product.category_id = category_id
             
         db.session.commit()
         
@@ -117,7 +130,7 @@ def update_product(product_id):
         
     except Exception as e:
         db.session.rollback()
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"message": str(e)}), 500
 
 
 
