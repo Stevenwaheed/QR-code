@@ -114,7 +114,7 @@ def add_category():
     
     # try:
     
-    new_category = Category(name=data['name'], agency_id=user.agency_id).first()
+    new_category = Category(name=data['name'], agency_id=user.agency_id)
     db.session.add(new_category)
     db.session.commit()
     

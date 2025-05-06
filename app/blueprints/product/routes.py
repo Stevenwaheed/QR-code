@@ -71,10 +71,25 @@ def get_product(product_id):
     except Exception as e:
         return jsonify({"message": str(e)}), 500
     
+
+
+@product_bp.route('/v1/product/agency/<int:agency_id>', methods=['GET'])
+def get_products_by_agency(agency_id):
+    try:
+        products = Product.query.filter_by(agency_id=agency_id, is_visible=True).all()
+        products_list = []
+        for product in products:
+            products_list.append(
+                get_product_details(product)
+            )
+        return products_list, 200
+        
+    except Exception as e:
+        return jsonify({"message": str(e)}), 500
     
     
 
-@product_bp.route('/v1/products/<int:product_id>', methods=['DELETE'])
+@product_bp.route('/v1/product/<int:product_id>', methods=['DELETE'])
 def delete_product(product_id):
     try:
         # Get the product

@@ -17,7 +17,7 @@ def generate_random_filename(extension=""):
 def get_product_details(product):
     agency = Agency.query.filter_by(id=product.agency_id).first()
     user = User.query.filter_by(id=product.created_by).first()
-    category = Category.query.filter_by(id=product.category_id).first()
+    # category = Category.query.filter_by(id=product.category_id).first()
 
 
     return {
@@ -30,5 +30,5 @@ def get_product_details(product):
         "updated_at": product.updated_at,
         "agency": get_agency_details(agency),
         "created_by": get_user_details(user),
-        "category": get_category_json(category)
+        # "category": get_category_json(category)
     }

@@ -11,3 +11,4 @@ flask-jwt-extended==4.6.0
 flasgger==0.9.7.1
 psycopg2-binary==2.9.10
 Flask-Cors==5.0.0
+Pillow==11.2.1

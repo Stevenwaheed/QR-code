@@ -897,13 +897,7 @@ def log_in():
     if agency is None:
         agency_json = None
     else:
-        agency_json = {
-            "id": agency.id,
-            "name": agency.name,
-            "type": agency.type.value,
-            "icon":agency.icon_url,
-            "created_at": agency.created_at,
-        }
+        agency_json = get_agency_details(agency)
         
 
     user_details = get_user_details(user)

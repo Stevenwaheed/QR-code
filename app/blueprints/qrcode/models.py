@@ -1,5 +1,5 @@
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from app.blueprints.product.models import Product
 from config.config import Config
 from db.database import db
@@ -12,14 +12,17 @@ from io import BytesIO
 import base64
 
 
+def default_expire_at():
+        return datetime.utcnow() + timedelta(days=30)
+
 class QRCode(db.Model):
     __tablename__ = 'qr_code'
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(50))
-    content = db.Column(db.String)  # JSON string containing product details
+    content = db.Column(db.String)
     agency_id = db.Column(db.Integer, ForeignKey('agencies.id'))
     qrcode_url = db.Column(db.String(200))
-    expire_at = db.Column(db.DateTime)
+    expire_at = db.Column(db.DateTime, default=default_expire_at)
     created_at = db.Column(db.DateTime, default=func.now())
     updated_at = db.Column(db.DateTime, default=func.now(), onupdate=func.now())
     
@@ -27,6 +30,8 @@ class QRCode(db.Model):
         if not self.expire_at:
             return False
         return datetime.now() > self.expire_at
+    
+    
     
     def get_products(self):
         if not self.content:
