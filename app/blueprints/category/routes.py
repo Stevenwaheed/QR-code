@@ -124,6 +124,36 @@ def add_category():
 @category_pg.route('/v1/category', methods=['GET'])
 @jwt_required()
 def get_categories():
+  """
+  Get all categories for the authenticated user's agency
+  ---
+  tags:
+    - Categories
+  security:
+    - jwt: []
+  responses:
+    200:
+      description: List of categories
+      schema:
+        type: array
+        items:
+          type: object
+          properties:
+            id:
+              type: integer
+              description: Category ID
+            name:
+              type: string
+              description: Category name
+            description:
+              type: string
+              description: Category description
+            agency_id:
+              type: integer
+              description: Agency ID
+    401:
+      description: Unauthorized, invalid or expired token
+  """
   payload = get_jwt_identity()
   payload = json.loads(payload)
   user = User.query.filter_by(id=payload['user_id']).first()
@@ -141,6 +171,42 @@ def get_categories():
 @category_pg.route('/v1/category/<int:category_id>', methods=['GET'])
 @jwt_required()
 def get_category(category_id):
+  """
+  Get a specific category by ID
+  ---
+  tags:
+    - Categories
+  security:
+    - jwt: []
+  parameters:
+    - name: category_id
+      in: path
+      type: integer
+      required: true
+      description: ID of the category to retrieve
+  responses:
+    200:
+      description: Category details
+      schema:
+        type: object
+        properties:
+          id:
+            type: integer
+            description: Category ID
+          name:
+            type: string
+            description: Category name
+          description:
+            type: string
+            description: Category description
+          agency_id:
+            type: integer
+            description: Agency ID
+    401:
+      description: Unauthorized, invalid or expired token
+    404:
+      description: Category not found
+  """
   payload = get_jwt_identity()
   payload = json.loads(payload)
   user = User.query.filter_by(id=payload['user_id']).first()

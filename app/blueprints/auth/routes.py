@@ -78,44 +78,12 @@ def sign_up():
                   type: string
                   description: Password for the account.
                   example: P@ssw0rd123
-                country_id:
-                  type: integer
-                  description: ID of the country.
-                  example: 1
-                state_id:
-                  type: integer
-                  description: ID of the state.
-                  example: 2
-                city_id:
-                  type: integer
-                  description: ID of the city.
-                  example: 3
-                street_address:
-                  type: string
-                  description: Street address of the user.
-                  example: 123 Main Street
-                postal_code:
-                  type: string
-                  description: Postal code of the address.
-                  example: 12345
-                lan:
-                  type: number
-                  description: Longitude of the address.
-                  example: 40.712776
-                lat:
-                  type: number
-                  description: Latitude of the address.
-                  example: -74.005974
               required:
                 - first_name
                 - last_name
                 - email
                 - phone_number
                 - password
-                - country_id
-                - state_id
-                - city_id
-                - street_address
       responses:
         200:
           description: User successfully registered.
@@ -153,36 +121,6 @@ def sign_up():
                               type: string
                             name:
                               type: string
-                      address:
-                        type: object
-                        properties:
-                          id:
-                            type: integer
-                          country:
-                            type: object
-                            properties:
-                              id:
-                                type: integer
-                              name:
-                                type: string
-                          city:
-                            type: object
-                            properties:
-                              id:
-                                type: integer
-                              name:
-                                type: string
-                          state:
-                            type: object
-                            properties:
-                              id:
-                                type: integer
-                              name:
-                                type: string
-                          lan:
-                            type: number
-                          lat:
-                            type: number
                       created_at:
                         type: string
                       updated_at:
@@ -354,38 +292,10 @@ def add_user():
               type: string
               example: "+1234567890"
               description: User's phone number
-            country_id:
-              type: integer
-              example: 1
-              description: ID of the user's country
-            state_id:
-              type: integer
-              example: 1
-              description: ID of the user's state
-            city_id:
-              type: integer
-              example: 1
-              description: ID of the user's city
             role_id:
               type: integer
               example: 1
               description: ID of the user's role
-            street_address:
-              type: string
-              example: "123 Main St"
-              description: User's street address
-            postal_code:
-              type: string
-              example: "12345"
-              description: User's postal code (optional)
-            lat:
-              type: number
-              example: 40.7128
-              description: Latitude coordinate (optional)
-            lan:
-              type: number
-              example: -74.0060
-              description: Longitude coordinate (optional)
     responses:
       200:
         description: User created successfully
@@ -430,48 +340,6 @@ def add_user():
                         icon:
                           type: string
                           example: "https://example.com/icon.png"
-                    address:
-                      type: object
-                      properties:
-                        id:
-                          type: integer
-                          example: 1
-                        city:
-                          type: object
-                          properties:
-                            id:
-                              type: integer
-                              example: 1
-                            name:
-                              type: string
-                              example: "New York"
-                            created_at:
-                              type: string
-                              example: "2024-02-08T12:00:00Z"
-                            updated_at:
-                              type: string
-                              example: "2024-02-08T12:00:00Z"
-                        state:
-                          type: object
-                          properties:
-                            id:
-                              type: integer
-                              example: 1
-                            name:
-                              type: string
-                              example: "New York"
-                            created_at:
-                              type: string
-                              example: "2024-02-08T12:00:00Z"
-                            updated_at:
-                              type: string
-                              example: "2024-02-08T12:00:00Z"
-                        lan:
-                          type: number
-                          example: -74.0060
-                        lat:
-                          type: number
-                          example: 40.7128
                     password:
                       type: string
                       example: "generatedPassword123"
@@ -599,6 +467,75 @@ def add_user():
 @auth_pg.route("/v1/user", methods=["GET"])
 @jwt_required()
 def get_users():
+  """
+  Get users based on requester's permissions
+  ---
+  tags:
+    - user
+  summary: Retrieve users based on authorization
+  description: Returns a list of users. For superadmins, returns all users; for other users, returns only users from their agency.
+  operationId: getUsers
+  security:
+    - bearerAuth: []
+  responses:
+    200:
+      description: List of users retrieved successfully
+      schema:
+        type: array
+        items:
+          type: object
+          properties:
+            id:
+              type: integer
+              description: User ID
+            email:
+              type: string
+              description: User's email address
+            name:
+              type: string
+              description: User's name
+            user_type:
+              type: string
+              description: Type of user (e.g., SUPERADMIN, ADMIN, USER)
+            is_active:
+              type: boolean
+              description: Whether the user is active
+            agency:
+              type: object
+              description: Details of the agency this user belongs to (null for superadmins)
+              properties:
+                id:
+                  type: integer
+                  description: Agency ID
+                name:
+                  type: string
+                  description: Agency name
+                # Additional agency properties would be listed here
+    401:
+      description: Unauthorized - Invalid or expired token
+      schema:
+        type: object
+        properties:
+          msg:
+            type: string
+            description: Error message
+    403:
+      description: Forbidden - User does not have required permissions
+      schema:
+        type: object
+        properties:
+          message:
+            type: string
+            description: Error message
+    500:
+      description: Server error
+      schema:
+        type: object
+        properties:
+          message:
+            type: string
+            description: Error message
+  """
   payload = get_jwt_identity()
   payload = json.loads(payload)
   
@@ -630,6 +567,88 @@ def get_users():
 @auth_pg.route("/v1/user/<int:user_id>", methods=["GET"])
 @jwt_required()
 def get_user_by_id(user_id):
+  """
+  Get a specific user by ID
+  ---
+  tags:
+    - user
+  summary: Retrieve a user by ID
+  description: Returns details of a specific user. Superadmins can access any user. Other users can only access users from their own agency.
+  operationId: getUserById
+  security:
+    - bearerAuth: []
+  parameters:
+    - name: user_id
+      in: path
+      description: ID of the user to retrieve
+      required: true
+      type: integer
+      format: int64
+  responses:
+    200:
+      description: User details retrieved successfully
+      schema:
+        type: object
+        properties:
+          id:
+            type: integer
+            description: User ID
+          email:
+            type: string
+            description: User's email address
+          name:
+            type: string
+            description: User's name
+          user_type:
+            type: string
+            description: Type of user (e.g., SUPERADMIN, ADMIN, USER)
+          is_active:
+            type: boolean
+            description: Whether the user is active
+          agency:
+            type: object
+            description: Details of the agency this user belongs to (null for superadmins)
+            properties:
+              id:
+                type: integer
+                description: Agency ID
+              name:
+                type: string
+                description: Agency name
+              # Additional agency properties would be listed here
+    400:
+      description: Bad request - User not part of requester's agency
+      schema:
+        type: object
+        properties:
+          message:
+            type: string
+            description: Error message
+    401:
+      description: Unauthorized - Invalid or expired token
+      schema:
+        type: object
+        properties:
+          msg:
+            type: string
+            description: Error message
+    404:
+      description: User not found
+      schema:
+        type: object
+        properties:
+          message:
+            type: string
+            description: Error message
+    500:
+      description: Server error
+      schema:
+        type: object
+        properties:
+          message:
+            type: string
+            description: Error message
+  """
   payload = get_jwt_identity()
   payload = json.loads(payload)
 
@@ -660,69 +679,200 @@ def get_user_by_id(user_id):
 
 @auth_pg.route('/v1/roles/<int:role_id>/permissions', methods=['POST'])
 def assign_permissions_to_role(role_id):
-    """
-    Assigns permissions to a specific role
-    
-    Expected JSON body:
-    {
-        "permission_ids": [1, 2, 3, ...]
-    }
-    """
-    try:
-        # Get the role
-        role = Role.query.get(role_id)
-        if not role:
-            return jsonify({"error": "Role not found"}), 404
-            
-        # Get the permission IDs from the request
-        data = request.get_json()
-        if not data or 'permission_ids' not in data:
-            return jsonify({"error": "Permission IDs are required"}), 400
-            
-        permission_ids = data['permission_ids']
-        if not isinstance(permission_ids, list):
-            return jsonify({"error": "Permission IDs must be a list"}), 400
-            
-        # Verify all permissions exist
-        existing_permissions = Permission.query.filter(Permission.id.in_(permission_ids)).all()
-        existing_ids = [p.id for p in existing_permissions]
-        
-        missing_ids = [pid for pid in permission_ids if pid not in existing_ids]
-        if missing_ids:
-            return jsonify({
-                "error": "Some permission IDs do not exist", 
-                "missing_ids": missing_ids
-            }), 404
-        
-        # Delete existing role permissions to avoid duplicates
-        RolePermission.query.filter_by(role_id=role_id).delete()
-        
-        # Create new role permissions
-        new_role_permissions = []
-        for permission_id in permission_ids:
-            role_permission = RolePermission(
-                role_id=role_id,
-                permission_id=permission_id
-            )
-            new_role_permissions.append(role_permission)
-            
-        db.session.add_all(new_role_permissions)
-        db.session.commit()
-        
-        return jsonify({
-            "message": f"Successfully assigned {len(permission_ids)} permissions to role {role.name}",
-            "role_id": role_id,
-            "permission_ids": permission_ids
-        }), 200
-        
-    except SQLAlchemyError as e:
-        db.session.rollback()
-        return jsonify({"error": str(e)}), 500
+  """
+  Assign permissions to a role
+  ---
+  tags:
+    - roles
+    - permissions
+  summary: Assign permissions to a specific role
+  description: Replaces all existing permission assignments for the specified role with the new set of permissions
+  operationId: assignPermissionsToRole
+  parameters:
+    - name: role_id
+      in: path
+      description: ID of the role to assign permissions to
+      required: true
+      type: integer
+      format: int64
+    - name: body
+      in: body
+      description: List of permission IDs to assign to the role
+      required: true
+      schema:
+        type: object
+        required:
+          - permission_ids
+        properties:
+          permission_ids:
+            type: array
+            items:
+              type: integer
+            description: Array of permission IDs to assign to the role
+  responses:
+    200:
+      description: Permissions successfully assigned to role
+      schema:
+        type: object
+        properties:
+          message:
+            type: string
+            description: Success message
+          role_id:
+            type: integer
+            description: ID of the role
+          permission_ids:
+            type: array
+            items:
+              type: integer
+            description: IDs of the permissions assigned to the role
+    400:
+      description: Bad request - Invalid input data
+      schema:
+        type: object
+        properties:
+          error:
+            type: string
+            description: Error message
+    404:
+      description: Role or permissions not found
+      schema:
+        type: object
+        properties:
+          error:
+            type: string
+            description: Error message
+          missing_ids:
+            type: array
+            items:
+              type: integer
+            description: IDs of permissions that do not exist
+    500:
+      description: Server error
+      schema:
+        type: object
+        properties:
+          error:
+            type: string
+            description: Error message
+  """
+  try:
+      # Get the role
+      role = Role.query.get(role_id)
+      if not role:
+          return jsonify({"error": "Role not found"}), 404
+          
+      # Get the permission IDs from the request
+      data = request.get_json()
+      if not data or 'permission_ids' not in data:
+          return jsonify({"error": "Permission IDs are required"}), 400
+          
+      permission_ids = data['permission_ids']
+      if not isinstance(permission_ids, list):
+          return jsonify({"error": "Permission IDs must be a list"}), 400
+          
+      # Verify all permissions exist
+      existing_permissions = Permission.query.filter(Permission.id.in_(permission_ids)).all()
+      existing_ids = [p.id for p in existing_permissions]
+      
+      missing_ids = [pid for pid in permission_ids if pid not in existing_ids]
+      if missing_ids:
+          return jsonify({
+              "error": "Some permission IDs do not exist", 
+              "missing_ids": missing_ids
+          }), 404
+      
+      # Delete existing role permissions to avoid duplicates
+      RolePermission.query.filter_by(role_id=role_id).delete()
+      
+      # Create new role permissions
+      new_role_permissions = []
+      for permission_id in permission_ids:
+          role_permission = RolePermission(
+              role_id=role_id,
+              permission_id=permission_id
+          )
+          new_role_permissions.append(role_permission)
+          
+      db.session.add_all(new_role_permissions)
+      db.session.commit()
+      
+      return jsonify({
+          "message": f"Successfully assigned {len(permission_ids)} permissions to role {role.name}",
+          "role_id": role_id,
+          "permission_ids": permission_ids
+      }), 200
+      
+  except SQLAlchemyError as e:
+      db.session.rollback()
+      return jsonify({"error": str(e)}), 500
 
 @auth_pg.route('/v1/roles/<int:role_id>/permissions', methods=['GET'])
 def get_role_permissions(role_id):
     """
-    Get all permissions assigned to a specific role
+    Get all permissions assigned to a role
+    ---
+    tags:
+      - roles
+      - permissions
+    summary: Retrieve all permissions assigned to a specific role
+    description: Returns the role details and a list of all permissions assigned to the specified role
+    operationId: getRolePermissions
+    parameters:
+      - name: role_id
+        in: path
+        description: ID of the role to get permissions for
+        required: true
+        type: integer
+        format: int64
+    responses:
+      200:
+        description: Role permissions retrieved successfully
+        schema:
+          type: object
+          properties:
+            role:
+              type: object
+              properties:
+                id:
+                  type: integer
+                  description: Role ID
+                name:
+                  type: string
+                  description: Role name
+                role_enum:
+                  type: string
+                  description: Role enumeration value
+            permissions:
+              type: array
+              items:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                    description: Permission ID
+                  type:
+                    type: string
+                    description: Permission type
+                  name:
+                    type: string
+                    description: Permission name
+      404:
+        description: Role not found
+        schema:
+          type: object
+          properties:
+            error:
+              type: string
+              description: Error message
+      500:
+        description: Server error
+        schema:
+          type: object
+          properties:
+            error:
+              type: string
+              description: Error message
     """
     try:
         # Check if role exists

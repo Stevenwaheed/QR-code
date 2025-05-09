@@ -23,7 +23,7 @@ def create_app():
 
     JWTManager(app)
     app.config['SWAGGER'] = {
-        'title': 'PO API',
+        'title': 'QR Code Generation API',
         'uiversion': 3,
         'securityDefinitions': {
             'bearerAuth': {
@@ -55,7 +55,7 @@ def create_app():
         }
     })
 
- 
+
     from .blueprints import register_routes
     register_routes(app)
 

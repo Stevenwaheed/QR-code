@@ -9,7 +9,7 @@ services:
       - qr_code_network
 
     ports:
-      - 5432:5432
+      - 7864:5432
 
     env_file:
       - .env
@@ -37,7 +37,7 @@ services:
       - .env
 
     ports:
-      - 8008:5000
+      - 1928:1928
 
     volumes:
       - /var/www/html/uploads:/var/www/html/uploads 
@@ -46,11 +46,11 @@ services:
       - qr_code_network
 
     depends_on:
-      db:
+      qr_code_db:
         condition: service_healthy
 
     links:
-      - db
+      - qr_code_db
 
 networks:
   qr_code_network:

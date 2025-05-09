@@ -25,14 +25,71 @@ qrcode_bp = Blueprint("qrcode_bp", __name__)
 def create_qr_code():
     """
     Create a new QR code
-    
-    Expected JSON body:
-    {
-        "name": "Product Catalog QR",
-        "agency_id": 1,
-        "redirect_base_url": "https://yourfrontend.com/products",  // Where to redirect the QR code
-        "qr_base_url": "https://yourbackend.com"                  // Base URL for the QR code endpoint (optional)
-    }
+    ---
+    tags:
+      - QR Codes
+    security:
+      - jwt: []
+    parameters:
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          required:
+            - name
+            - redirect_base_url
+          properties:
+            name:
+              type: string
+              description: Name of the QR code
+              example: "Store Entry QR"
+            redirect_base_url:
+              type: string
+              description: Base URL where users will be redirected after scanning
+              example: "https://myapp.com/store"
+            qr_base_url:
+              type: string
+              description: Optional base URL for QR code endpoint (defaults to host URL)
+              example: "https://api.myapp.com"
+    responses:
+      201:
+        description: QR code created successfully
+        schema:
+          type: object
+          properties:
+            id:
+              type: integer
+              description: QR code ID
+            name:
+              type: string
+              description: QR code name
+            agency_id:
+              type: integer
+              description: Agency ID
+            qrcode_url:
+              type: string
+              description: URL to the QR code image
+            scanner_url:
+              type: string
+              description: URL encoded in the QR code
+            redirect_target:
+              type: string
+              description: Where users will be redirected after scanning
+            expire_at:
+              type: string
+              format: date-time
+              description: Expiration date and time in ISO format
+            created_at:
+              type: string
+              format: date-time
+              description: Creation date and time
+      400:
+        description: Bad request - missing required fields
+      401:
+        description: Unauthorized, invalid or expired token
+      500:
+        description: Server error
     """
     try:
         data = request.get_json()
@@ -97,11 +154,71 @@ def create_qr_code():
 def update_qr_code(qr_id):
     """
     Update an existing QR code
-    
-    Expected JSON body can include:
-    {
-        "name": "Updated QR Name",
-    }
+    ---
+    tags:
+      - QR Codes
+    security:
+      - jwt: []
+    parameters:
+      - name: qr_id
+        in: path
+        type: integer
+        required: true
+        description: ID of the QR code to update
+        example: 1
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          properties:
+            name:
+              type: string
+              description: Updated name for the QR code
+              example: "Updated Store Entry QR"
+            expire_at:
+              type: string
+              format: date-time
+              description: Updated expiration date in ISO format (YYYY-MM-DDTHH:MM:SS), or null to remove expiration
+              example: "2025-12-31T23:59:59"
+    responses:
+      200:
+        description: QR code updated successfully
+        schema:
+          type: object
+          properties:
+            id:
+              type: integer
+              description: QR code ID
+            name:
+              type: string
+              description: Updated QR code name
+            agency_id:
+              type: integer
+              description: Agency ID
+            qrcode_url:
+              type: string
+              description: URL to the QR code image
+            expire_at:
+              type: string
+              format: date-time
+              description: Updated expiration date and time in ISO format
+            created_at:
+              type: string
+              format: date-time
+              description: Creation date and time
+            updated_at:
+              type: string
+              format: date-time
+              description: Last update date and time
+      400:
+        description: Bad request - no update data or invalid date format
+      401:
+        description: Unauthorized, invalid or expired token
+      404:
+        description: QR code not found
+      500:
+        description: Server error
     """
     try:
         qr = QRCode.query.get(qr_id)
@@ -146,7 +263,57 @@ def update_qr_code(qr_id):
 @qrcode_bp.route('/v1/qrcode', methods=['GET'])
 def get_all_qr_codes():
     """
-    Get all QR codes, with optional agency filtering
+    Get all QR codes, optionally filtered by agency
+    ---
+    tags:
+      - QR Codes
+    parameters:
+      - name: agency_id
+        in: query
+        type: integer
+        required: false
+        description: Filter QR codes by agency ID
+        example: 1
+    responses:
+      200:
+        description: List of QR codes
+        schema:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: integer
+                description: QR code ID
+              name:
+                type: string
+                description: QR code name
+              agency_id:
+                type: integer
+                description: Agency ID
+              qrcode_url:
+                type: string
+                description: URL to the QR code image
+              scanner_url:
+                type: string
+                description: URL encoded in the QR code
+              expire_at:
+                type: string
+                format: date-time
+                description: Expiration date and time in ISO format
+              is_expired:
+                type: boolean
+                description: Whether the QR code has expired
+              created_at:
+                type: string
+                format: date-time
+                description: Creation date and time
+              updated_at:
+                type: string
+                format: date-time
+                description: Last update date and time
+      500:
+        description: Server error
     """
     try:
         agency_id = request.args.get('agency_id', type=int)
@@ -180,7 +347,57 @@ def get_all_qr_codes():
 @qrcode_bp.route('/v1/qrcode/<int:qr_id>', methods=['GET'])
 def get_qr_code(qr_id):
     """
-    Get a single QR code by ID
+    Get a specific QR code by ID
+    ---
+    tags:
+      - QR Codes
+    parameters:
+      - name: qr_id
+        in: path
+        type: integer
+        required: true
+        description: ID of the QR code to retrieve
+        example: 1
+    responses:
+      200:
+        description: QR code details
+        schema:
+          type: object
+          properties:
+            id:
+              type: integer
+              description: QR code ID
+            name:
+              type: string
+              description: QR code name
+            agency_id:
+              type: integer
+              description: Agency ID
+            qrcode_url:
+              type: string
+              description: URL to the QR code image
+            scanner_url:
+              type: string
+              description: URL encoded in the QR code
+            expire_at:
+              type: string
+              format: date-time
+              description: Expiration date and time in ISO format
+            is_expired:
+              type: boolean
+              description: Whether the QR code has expired
+            created_at:
+              type: string
+              format: date-time
+              description: Creation date and time
+            updated_at:
+              type: string
+              format: date-time
+              description: Last update date and time
+      404:
+        description: QR code not found
+      500:
+        description: Server error
     """
     try:
         qr = QRCode.query.get(qr_id)
@@ -208,8 +425,26 @@ def get_qr_code(qr_id):
 @qrcode_bp.route('/qr/<string:qr_uuid>', methods=['GET'])
 def redirect_qr(qr_uuid):
     """
-    Handle QR code redirection when scanned
-    Redirects to frontend product dashboard for the associated agency
+    Redirect user after scanning a QR code
+    ---
+    tags:
+      - QR Codes
+    parameters:
+      - name: qr_uuid
+        in: path
+        type: string
+        required: true
+        description: UUID of the QR code
+        example: "a1b2c3d4e5f6"
+    responses:
+      302:
+        description: Redirect to the appropriate product page
+      404:
+        description: QR code or agency not found
+      410:
+        description: QR code has expired
+      500:
+        description: Server error
     """
     try:
         # Find the QR code record

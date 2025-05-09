@@ -144,7 +144,40 @@ def add_country():
 
 @address_pg.route("/v1/country", methods=["GET"])
 def list_countries():
-    # Base query
+    """
+    List all countries
+    ---
+    tags:
+      - country
+    summary: List all countries
+    description: Returns a list of all countries in the database
+    operationId: listCountries
+    responses:
+      200:
+        description: Successful operation
+        schema:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: integer
+                description: Unique identifier for the country
+              name:
+                type: string
+                description: Country name
+              iso_code:
+                type: string
+                description: ISO code for the country
+      500:
+        description: Server error
+        schema:
+          type: object
+          properties:
+            message:
+              type: string
+              description: Error message
+    """
     countries = Country.query.all()
 
     try:
@@ -267,55 +300,131 @@ def get_country_details(country_id):
 
 @address_pg.route("/v1/country/<int:country_id>", methods=["PATCH"])
 def update_country(country_id):
-    data = request.json
+  """
+  Update a country by ID
+  ---
+  tags:
+    - country
+  summary: Update an existing country
+  description: Update a country's name and/or ISO code by ID
+  operationId: updateCountry
+  parameters:
+    - name: country_id
+      in: path
+      description: ID of the country to update
+      required: true
+      type: integer
+      format: int64
+    - name: body
+      in: body
+      description: Country object with updated fields
+      required: true
+      schema:
+        type: object
+        properties:
+          name:
+            type: string
+            description: Updated country name
+          iso_code:
+            type: string
+            description: Updated ISO code
+  responses:
+    200:
+      description: Successfully updated country
+      schema:
+        type: object
+        properties:
+          id:
+            type: integer
+            description: Country ID
+          name:
+            type: string
+            description: Country name
+          iso_code:
+            type: string
+            description: ISO code for the country
+    400:
+      description: Bad request - No data provided or database integrity error
+      schema:
+        type: object
+        properties:
+          message:
+            type: string
+            description: Error message
+    404:
+      description: Country not found
+      schema:
+        type: object
+        properties:
+          message:
+            type: string
+            description: Error message
+    409:
+      description: Conflict - Country name already exists
+      schema:
+        type: object
+        properties:
+          message:
+            type: string
+            description: Error message
+    500:
+      description: Server error
+      schema:
+        type: object
+        properties:
+          message:
+            type: string
+            description: Error message
+  """
+  data = request.json
 
-    if not data:
-        return {"message": "No update data provided"}, 400
+  if not data:
+      return {"message": "No update data provided"}, 400
 
-    country = Country.query.filter_by(id=country_id).first()
-    if country is None:
-        return {"message": "country not found"}, 404
+  country = Country.query.filter_by(id=country_id).first()
+  if country is None:
+      return {"message": "country not found"}, 404
 
-    try:
-        # Update name if provided
-        if "name" in data:
-            # Check if new name already exists
-            existing_country = Country.query.filter(
-                Country.name == data["name"], Country.id != country_id
-            ).first()
+  try:
+      # Update name if provided
+      if "name" in data:
+          # Check if new name already exists
+          existing_country = Country.query.filter(
+              Country.name == data["name"], Country.id != country_id
+          ).first()
 
-            if existing_country:
-                return {"message": "Country name already exists"}, 409
+          if existing_country:
+              return {"message": "Country name already exists"}, 409
 
-            country.name = data["name"]
+          country.name = data["name"]
 
-        # Update iso_code if provided
-        if "iso_code" in data:
-            country.iso_code = data["iso_code"]
+      # Update iso_code if provided
+      if "iso_code" in data:
+          country.iso_code = data["iso_code"]
 
-        db.session.commit()
+      db.session.commit()
 
-        return (
-            jsonify(
-                {
-                    "id": country.id,
-                    "name": country.name,
-                    "iso_code": country.iso_code,
-                    # "created_at": country.created_at,
-                    # "updated_at": country.updated_at,
-                }
-            ),
-            200,
-        )
+      return (
+          jsonify(
+              {
+                  "id": country.id,
+                  "name": country.name,
+                  "iso_code": country.iso_code,
+                  # "created_at": country.created_at,
+                  # "updated_at": country.updated_at,
+              }
+          ),
+          200,
+      )
 
-    except IntegrityError:
-        db.session.rollback()
-        return {
-            "message": "Failed to update country due to a database integrity error"
-        }, 400
-    except Exception as e:
-        db.session.rollback()
-        return {"message": f"An error occurred: {str(e)}"}, 500
+  except IntegrityError:
+      db.session.rollback()
+      return {
+          "message": "Failed to update country due to a database integrity error"
+      }, 400
+  except Exception as e:
+      db.session.rollback()
+      return {"message": f"An error occurred: {str(e)}"}, 500
 
 
 @address_pg.route("/v1/state", methods=["POST"])
@@ -667,62 +776,134 @@ def get_state_details(state_id):
 
 @address_pg.route("/v1/state/<int:state_id>", methods=["PATCH"])
 def update_state(state_id):
+  """
+  Update a state by ID
+  ---
+  tags:
+    - state
+  summary: Update an existing state
+  description: Update a state's name and/or country by ID
+  operationId: updateState
+  parameters:
+    - name: state_id
+      in: path
+      description: ID of the state to update
+      required: true
+      type: integer
+      format: int64
+    - name: body
+      in: body
+      description: State object with updated fields
+      required: true
+      schema:
+        type: object
+        properties:
+          name:
+            type: string
+            description: Updated state name
+          country_id:
+            type: integer
+            description: ID of the country this state belongs to
+  responses:
+    200:
+      description: Successfully updated state
+      schema:
+        type: object
+        properties:
+          id:
+            type: integer
+            description: State ID
+          name:
+            type: string
+            description: State name
+    400:
+      description: Bad request - No data provided or database integrity error
+      schema:
+        type: object
+        properties:
+          message:
+            type: string
+            description: Error message
+    404:
+      description: State not found or invalid country_id
+      schema:
+        type: object
+        properties:
+          message:
+            type: string
+            description: Error message
+    409:
+      description: Conflict - State name already exists in this country
+      schema:
+        type: object
+        properties:
+          message:
+            type: string
+            description: Error message
+    500:
+      description: Server error
+      schema:
+        type: object
+        properties:
+          message:
+            type: string
+            description: Error message
+  """
+  data = request.json
 
-    data = request.json
+  if not data:
+      return {"message": "No update data provided"}, 400
 
-    if not data:
-        return {"message": "No update data provided"}, 400
+  state = State.query.filter_by(id=state_id).first()
+  if state is None:
+      return {"message": "state not found"}, 404
 
-    state = State.query.filter_by(id=state_id).first()
-    if state is None:
-        return {"message": "state not found"}, 404
+  try:
+      # Update name if provided
+      if "name" in data:
+          # Check if new name already exists in the same country
+          existing_state = State.query.filter(
+              State.name == data["name"],
+              State.country_id == state.country_id,
+              State.id != state_id,
+          ).first()
 
-    try:
-        # Update name if provided
-        if "name" in data:
-            # Check if new name already exists in the same country
-            existing_state = State.query.filter(
-                State.name == data["name"],
-                State.country_id == state.country_id,
-                State.id != state_id,
-            ).first()
+          if existing_state:
+              return {"message": "State name already exists in this country"}, 409
 
-            if existing_state:
-                return {"message": "State name already exists in this country"}, 409
+          state.name = data["name"]
 
-            state.name = data["name"]
+      # Update country_id if provided
+      if "country_id" in data:
+          # Verify new country exists
+          country = Country.query.get(data["country_id"])
+          if not country:
+              return {"message": "Invalid country_id"}, 404
 
-        # Update country_id if provided
-        if "country_id" in data:
-            # Verify new country exists
-            country = Country.query.get(data["country_id"])
-            if not country:
-                return {"message": "Invalid country_id"}, 404
+          state.country_id = data["country_id"]
 
-            state.country_id = data["country_id"]
+      db.session.commit()
 
-        db.session.commit()
+      return (
+          jsonify(
+              {
+                  "id": state.id,
+                  "name": state.name,
+                  # "created_at": state.created_at,
+                  # "updated_at": state.updated_at,
+              }
+          ),
+          200,
+      )
 
-        return (
-            jsonify(
-                {
-                    "id": state.id,
-                    "name": state.name,
-                    # "created_at": state.created_at,
-                    # "updated_at": state.updated_at,
-                }
-            ),
-            200,
-        )
-
-    except IntegrityError:
-        db.session.rollback()
-        return {
-            "message": "Failed to update state due to a database integrity error"
-        }, 400
-    except Exception as e:
-        db.session.rollback()
-        return {"message": f"An error occurred: {str(e)}"}, 500
+  except IntegrityError:
+      db.session.rollback()
+      return {
+          "message": "Failed to update state due to a database integrity error"
+      }, 400
+  except Exception as e:
+      db.session.rollback()
+      return {"message": f"An error occurred: {str(e)}"}, 500
 
 
 @address_pg.route("/v1/city", methods=["POST"])
@@ -1111,66 +1292,145 @@ def get_city_details(city_id):
 
 @address_pg.route("/v1/city/<int:city_id>", methods=["PATCH"])
 def update_city(city_id):
-    data = request.json
+  """
+  Update a city by ID
+  ---
+  tags:
+    - city
+  summary: Update an existing city
+  description: Update a city's name, state, and/or postal code prefix by ID
+  operationId: updateCity
+  parameters:
+    - name: city_id
+      in: path
+      description: ID of the city to update
+      required: true
+      type: integer
+      format: int64
+    - name: body
+      in: body
+      description: City object with updated fields
+      required: true
+      schema:
+        type: object
+        properties:
+          name:
+            type: string
+            description: Updated city name
+          state_id:
+            type: integer
+            description: ID of the state this city belongs to
+          postal_code_prefix:
+            type: string
+            description: Updated postal code prefix for the city
+  responses:
+    200:
+      description: Successfully updated city
+      schema:
+        type: object
+        properties:
+          id:
+            type: integer
+            description: City ID
+          name:
+            type: string
+            description: City name
+          postal_code_prefix:
+            type: string
+            description: Postal code prefix for the city
+    400:
+      description: Bad request - No data provided or database integrity error
+      schema:
+        type: object
+        properties:
+          message:
+            type: string
+            description: Error message
+    404:
+      description: City not found or invalid state_id
+      schema:
+        type: object
+        properties:
+          message:
+            type: string
+            description: Error message
+    409:
+      description: Conflict - City name already exists in this state
+      schema:
+        type: object
+        properties:
+          message:
+            type: string
+            description: Error message
+    500:
+      description: Server error
+      schema:
+        type: object
+        properties:
+          message:
+            type: string
+            description: Error message
+  """
+  data = request.json
 
-    if not data:
-        return {"message": "No update data provided"}, 400
+  if not data:
+      return {"message": "No update data provided"}, 400
 
-    city = City.query.filter_by(id=city_id).first()
-    if city is None:
-        return {"message": "city not found"}, 404
+  city = City.query.filter_by(id=city_id).first()
+  if city is None:
+      return {"message": "city not found"}, 404
 
-    try:
-        # Update name if provided
-        if "name" in data:
-            # Check if new name already exists in the same state
-            existing_city = City.query.filter(
-                City.name == data["name"],
-                City.state_id == city.state_id,
-                City.id != city_id,
-            ).first()
+  try:
+      # Update name if provided
+      if "name" in data:
+          # Check if new name already exists in the same state
+          existing_city = City.query.filter(
+              City.name == data["name"],
+              City.state_id == city.state_id,
+              City.id != city_id,
+          ).first()
 
-            if existing_city:
-                return {"message": "City name already exists in this state"}, 409
+          if existing_city:
+              return {"message": "City name already exists in this state"}, 409
 
-            city.name = data["name"]
+          city.name = data["name"]
 
-        # Update state_id if provided
-        if "state_id" in data:
-            # Verify new state exists
-            state = State.query.get(data["state_id"])
-            if not state:
-                return {"message": "Invalid state_id"}, 404
+      # Update state_id if provided
+      if "state_id" in data:
+          # Verify new state exists
+          state = State.query.get(data["state_id"])
+          if not state:
+              return {"message": "Invalid state_id"}, 404
 
-            city.state_id = data["state_id"]
+          city.state_id = data["state_id"]
 
-        # Update postal_code_prefix if provided
-        if "postal_code_prefix" in data:
-            city.postal_code_prefix = data["postal_code_prefix"]
+      # Update postal_code_prefix if provided
+      if "postal_code_prefix" in data:
+          city.postal_code_prefix = data["postal_code_prefix"]
 
-        db.session.commit()
+      db.session.commit()
 
-        return (
-            jsonify(
-                {
-                    "id": city.id,
-                    "name": city.name,
-                    "postal_code_prefix": city.postal_code_prefix,
-                    # "created_at": city.created_at,
-                    # "updated_at": city.updated_at,
-                }
-            ),
-            200,
-        )
+      return (
+          jsonify(
+              {
+                  "id": city.id,
+                  "name": city.name,
+                  "postal_code_prefix": city.postal_code_prefix,
+                  # "created_at": city.created_at,
+                  # "updated_at": city.updated_at,
+              }
+          ),
+          200,
+      )
 
-    except IntegrityError:
-        db.session.rollback()
-        return {
-            "message": "Failed to update city due to a database integrity error"
-        }, 400
-    except Exception as e:
-        db.session.rollback()
-        return {"message": f"An error occurred: {str(e)}"}, 500
+  except IntegrityError:
+      db.session.rollback()
+      return {
+          "message": "Failed to update city due to a database integrity error"
+      }, 400
+  except Exception as e:
+      db.session.rollback()
+      return {"message": f"An error occurred: {str(e)}"}, 500
 
 
 
