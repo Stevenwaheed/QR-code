@@ -883,13 +883,21 @@ def approve_agency_files(agency_id):
     401:
       description: Unauthorized - JWT token missing or invalid
   """
+  
+  payload = get_jwt_identity()
+  payload = json.loads(payload)
+  
+  user = User.query.filter_by(id=payload['user_id']).first()
+  if user.user_type != UserType.SUPERADMIN:
+    return {"message": "you don't have permission to approve"}, 400
+  
   agency = Agency.query.filter_by(id=agency_id).first()
   if agency is None:
     return {"message": "agency not found"}, 404
   
   agency.status = AgencyStatus.APPROVED
-  user = User.query.filter_by(agency_id=agency.id).first()
-  user.is_verified = True
+  # user = User.query.filter_by(agency_id=agency.id).first()
+  # user.is_verified = True
   db.session.commit()
   
   agency_details = get_agency_details(agency)
@@ -957,6 +965,15 @@ def reject_agency_files(agency_id):
     401:
       description: Unauthorized - JWT token missing or invalid
   """
+  
+  payload = get_jwt_identity()
+  payload = json.loads(payload)
+  
+  user = User.query.filter_by(id=payload['user_id']).first()
+  if user.user_type != UserType.SUPERADMIN:
+    return {"message": "you don't have permission to reject"}, 400
+  
+  
   agency = Agency.query.filter_by(id=agency_id).first()
   if agency is None:
     return {"message": "agency not found"}, 404

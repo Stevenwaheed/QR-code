@@ -24,7 +24,7 @@ def manage_products():
     tags:
       - Products
     security:
-      - jwt: []
+      - bearerAuth: []
     parameters:
       - in: formData
         name: name
@@ -270,7 +270,7 @@ def delete_product(product_id):
     tags:
       - Products
     security:
-      - jwt: []
+      - bearerAuth: []
     parameters:
       - name: product_id
         in: path
@@ -325,7 +325,7 @@ def update_product(product_id):
     tags:
       - Products
     security:
-      - jwt: []
+      - bearerAuth: []
     parameters:
       - name: product_id
         in: path

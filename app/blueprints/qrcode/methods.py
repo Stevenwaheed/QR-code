@@ -7,6 +7,7 @@ import qrcode
 import json
 from app.blueprints.agency.methods import get_agency_details
 from app.blueprints.agency.models import Agency
+from config.config import Config
 from werkzeug.utils import secure_filename
 
 def get_qr_details(qr_code):
@@ -42,9 +43,11 @@ def generate_qr_code(content, agency_id, qr_name):
     
     # Save the image to a file
     filename = f"{secure_filename(qr_name)}_{agency_id}_{uuid.uuid4().hex}.png"
-    img_path = os.path.join('static', 'qrcodes', filename)
+    # img_path = os.path.join('static', 'qrcodes', filename)
+    img_path = Config.IMAGE_ICONS_URL + '/' + filename
+    print(img_path)
     os.makedirs(os.path.dirname(img_path), exist_ok=True)
     img.save(img_path)
     
     # Return the relative URL to the image
-    return f'/static/qrcodes/{filename}'
+    return f'{Config.IMAGE_ICONS_GLOBAL_URL}/{filename}'

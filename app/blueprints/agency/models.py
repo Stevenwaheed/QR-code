@@ -26,6 +26,7 @@ class Agency(db.Model):
     icon_url = db.Column(db.String)
     status = db.Column(agency_status_enum, default=AgencyStatus.PENDING)
     subscription_tier = db.Column(db.String(20), default='basic')  # basic, premium, enterprise
+    is_visible = db.Column(db.Boolean, default=True)
     monthly_qr_limit = db.Column(db.Integer, default=5)
     qr_codes = relationship('QRCode', backref='agency', lazy=True)
     products = relationship('Product', backref='agency', lazy=True)

@@ -29,7 +29,7 @@ def create_qr_code():
     tags:
       - QR Codes
     security:
-      - jwt: []
+      - bearerAuth: []
     parameters:
       - in: body
         name: body
@@ -158,7 +158,7 @@ def update_qr_code(qr_id):
     tags:
       - QR Codes
     security:
-      - jwt: []
+      - bearerAuth: []
     parameters:
       - name: qr_id
         in: path
@@ -463,7 +463,7 @@ def redirect_qr(qr_uuid):
             
         # Determine frontend URL (in a real app, this would come from configuration)
         # Here I'm using a query parameter approach, but you can structure this however your frontend expects
-        frontend_url = f"http://192.168.1.63:1928/api/v1/product/agency/{qr.agency_id}"
+        frontend_url = f"{request.host_url}/api/v1/product/agency/{qr.agency_id}"
         
         # Redirect to frontend with agency ID
         return redirect(frontend_url, code=302)

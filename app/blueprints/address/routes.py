@@ -148,7 +148,7 @@ def list_countries():
     List all countries
     ---
     tags:
-      - country
+      - Country
     summary: List all countries
     description: Returns a list of all countries in the database
     operationId: listCountries
@@ -210,8 +210,6 @@ def get_country_details(country_id):
       - Country
     summary: Retrieve country details
     description: Fetches detailed information about a country, including its states, by the country ID.
-    security:
-      - BearerAuth: []
     parameters:
       - name: country_id
         in: path
@@ -304,7 +302,7 @@ def update_country(country_id):
   Update a country by ID
   ---
   tags:
-    - country
+    - Country
   summary: Update an existing country
   description: Update a country's name and/or ISO code by ID
   operationId: updateCountry
@@ -780,7 +778,7 @@ def update_state(state_id):
   Update a state by ID
   ---
   tags:
-    - state
+    - State
   summary: Update an existing state
   description: Update a state's name and/or country by ID
   operationId: updateState
@@ -1296,7 +1294,7 @@ def update_city(city_id):
   Update a city by ID
   ---
   tags:
-    - city
+    - City
   summary: Update an existing city
   description: Update a city's name, state, and/or postal code prefix by ID
   operationId: updateCity
